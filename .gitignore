@@ -1,1 +1,5 @@
-Starter_code
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
