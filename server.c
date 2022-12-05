@@ -9,33 +9,45 @@
 
 int main(int argc, char *argv[]) {
 	
+	if (argc != 3) {
+		printf("usage: server [portnum] [file-system-image]\n");
+		exit(1);
+	}
+
+	// get port number
+	int port = atoi(argv[1]);
+	if (port == 0) exit(1);
 	
+
 	// get file system image
-	int fd = open(argv[1], O_RDWR);
+	int fd = open(argv[2], O_RDWR);
 	// if file system image doesn't exist, then exit
 	if (fd < 0) {
 		perror("image does not exist\n");
 		exit(1);
 	}
 	
-	// get super block
+	// read in super block
 	super_t s;
 	read(fd, &s, sizeof(super_t));
 
-	    struct sockaddr_in addrSnd, addrRcv;
-
 	// read in inode bitmap
-	void *i_bitMap[UFS_BLOCK_SIZE * s.inode_bitmap_len];
+	unsigned int i_bitMap[(s.inode_bitmap_len * UFS_BLOCK_SIZE) / sizeof(unsigned int)];
 	pread(fd, i_bitMap, s.inode_bitmap_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.inode_bitmap_addr);
-	
+
+	// read in data bitmap
+	unsigned int d_bitMap[(s.data_bitmap_len * UFS_BLOCK_SIZE) / sizeof(unsigned int)];
+	pread(fd, d_bitMap, s.data_bitmap_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.data_bitmap_addr);
+
+	// read in inode region
+	inode_t inode_table[(s.data_bitmap_len * UFS_BLOCK_SIZE) / sizeof(inode_t)];
+	pread(fd, inode_table, s.inode_region_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.inode_region_addr);
 
 
 
+	struct sockaddr_in addrSnd, addrRcv;
 
-
-
-
-    int sd = UDP_Open(10000);
+    int sd = UDP_Open(port);
     int rc = UDP_FillSockAddr(&addrSnd, "localhost", 20000);
     
     while (1) {
@@ -61,4 +73,10 @@ int main(int argc, char *argv[]) {
 	close(fd);
 
 
+}
+
+int lookup() {
+
+	
+	return 0;
 }
