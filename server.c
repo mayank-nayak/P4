@@ -9,7 +9,7 @@
 #define BUFFER_SIZE (1000)
 
 // FUNCTION PROTOTYPES
-int lookup(int pinum, char *name, unsigned int i_bitMap[]);
+int lookup(int pinum, char *name, unsigned int i_bitMap[], inode_t inode_table[]);
 int get_allocated(unsigned int n);
 
 ///////////////////////////////////////////// METADATA //////////////////////////////////
@@ -20,6 +20,7 @@ int numInodes;
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
+int fd;
 
 
 int main(int argc, char *argv[]) {
@@ -35,7 +36,7 @@ int main(int argc, char *argv[]) {
 	
 
 	// get file system image
-	int fd = open(argv[2], O_RDWR);
+	fd = open(argv[2], O_RDWR);
 	// if file system image doesn't exist, then exit
 	if (fd < 0) {
 		perror("image does not exist\n");
@@ -86,6 +87,10 @@ int main(int argc, char *argv[]) {
 			arguments[argNum] = token;
 			argNum++;
     	}
+		int ret_val = -1;
+		if (!strcmp("MFS_Lookup", arguments[0])) {
+			ret_val = lookup(atoi(arguments[1]), arguments[2], i_bitMap, inode_table);
+		}
 		
 
 
@@ -107,20 +112,26 @@ int lookup(int pinum, char *name, unsigned int i_bitMap[], inode_t inode_table[]
 	// CHECK IF INODE IS ALLOCATED IN INODE BITMAP
 	int index = pinum / sizeof(unsigned(int));
 	unsigned int entry = i_bitMap[index];
-
-	if (!get_allocated(pinum)) return -1;
+	if (!get_allocated(entry)) return -1;
 	
+	// CHECK IF INODE IS DIRECTORY
 	inode_t inode = inode_table[pinum];
 	if (inode.type != UFS_DIRECTORY) return -1;
 
+	// LOOK THROUGH DIRECTORY ENTRIES TO FIND NAME
 	for (int i = 0; i<DIRECT_PTRS; ++i) {
 		if (inode.direct[i] == -1) continue;
 		
-		void *directory_table = inode.direct[i];
-		
+		dir_ent_t directory_table[UFS_BLOCK_SIZE / sizeof(dir_ent_t)];
+		pread(fd, directory_table, UFS_BLOCK_SIZE, inode.direct[i]);
+		for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); ++j) {
+			dir_ent_t current_entry = directory_table[j];
+			if (current_entry.inum == -1) continue;
+			if (!strcmp(name, current_entry.name)) return current_entry.inum;
+		}
 	}
 
-	return 0;
+	return -1;
 }
 
 
