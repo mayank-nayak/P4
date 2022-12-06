@@ -2,4 +2,7 @@
 *
 
 # Unignore all with extensions
-!*.*
+!*.c
+
+
+tester.c

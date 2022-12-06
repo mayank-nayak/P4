@@ -8,6 +8,20 @@
 
 #define BUFFER_SIZE (1000)
 
+// FUNCTION PROTOTYPES
+int lookup(int pinum, char *name, unsigned int i_bitMap[]);
+int get_allocated(unsigned int n);
+
+///////////////////////////////////////////// METADATA //////////////////////////////////
+// super block
+super_t s;
+// number of inodes
+int numInodes;
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+
+
 int main(int argc, char *argv[]) {
 	
 	if (argc != 3) {
@@ -29,7 +43,6 @@ int main(int argc, char *argv[]) {
 	}
 	
 	// read in super block
-	super_t s;
 	read(fd, &s, sizeof(super_t));
 
 	// read in inode bitmap
@@ -40,9 +53,11 @@ int main(int argc, char *argv[]) {
 	unsigned int d_bitMap[(s.data_bitmap_len * UFS_BLOCK_SIZE) / sizeof(unsigned int)];
 	pread(fd, d_bitMap, s.data_bitmap_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.data_bitmap_addr);
 
+	numInodes = (s.inode_region_len * UFS_BLOCK_SIZE) / sizeof(inode_t);
+
 	// read in inode region
-	inode_t inode_table[(s.data_bitmap_len * UFS_BLOCK_SIZE) / sizeof(inode_t)];
-	pread(fd, inode_table, s.inode_region_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.inode_region_addr);
+	inode_t inode_table[numInodes];
+	pread(fd, (void *)inode_table, s.inode_region_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.inode_region_addr);
 
 
 
@@ -72,28 +87,58 @@ int main(int argc, char *argv[]) {
 			argNum++;
     	}
 		
-		// if (strcmp(arguments[0], "MFS_Lookup")) {
-			
-		// }
-		
+
 
 		free(freeMessage);
-		return rc;
+		break;
 
 	}
 
+	close(fd);
 
     return 0;
 
-
-	
-	close(fd);
-
-
 }
 
-int lookup() {
+int lookup(int pinum, char *name, unsigned int i_bitMap[], inode_t inode_table[]) {
 
+	if (pinum >= numInodes) return -1;
+
+	// CHECK IF INODE IS ALLOCATED IN INODE BITMAP
+	int index = pinum / sizeof(unsigned(int));
+	unsigned int entry = i_bitMap[index];
+
+	if (!get_allocated(pinum)) return -1;
 	
+	inode_t inode = inode_table[pinum];
+	if (inode.type != UFS_DIRECTORY) return -1;
+
+	for (int i = 0; i<DIRECT_PTRS; ++i) {
+		if (inode.direct[i] == -1) continue;
+		
+		void *directory_table = inode.direct[i];
+		
+	}
+
 	return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+// HELPER FUNCTIONS
+
+int get_allocated(unsigned int n) {
+	int k = 31 - (n % 32);
+	unsigned int mask = (unsigned int)1 << k;
+	unsigned int masked = n & mask;
+	unsigned int inode_bit = masked >> k;
+	return inode_bit;
 }
