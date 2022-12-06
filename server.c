@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include "udp.h"
 #include "mfs.h"
 #include "ufs.h"
@@ -45,27 +46,43 @@ int main(int argc, char *argv[]) {
 
 
 
-	struct sockaddr_in addrSnd, addrRcv;
+	struct sockaddr_in addrRcv;
 
     int sd = UDP_Open(port);
-    int rc = UDP_FillSockAddr(&addrSnd, "localhost", 20000);
-    
+    int rc;
+
     while (1) {
+		// receiving command
+		//char message[BUFFER_SIZE];
+		char *message = malloc(sizeof(char) * BUFFER_SIZE);
+		char *freeMessage = message;
+		rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
 
-        char message[BUFFER_SIZE];
-        sprintf(message, "I am the server");
+		printf("message in server: %s\n", message);
 
-        printf("server:: send message [%s]\n", message);
-        rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
-        if (rc < 0) {
-        printf("server:: failed to send\n");
-        exit(1);
-        }
+		// processing command
+		int argNum = 0;
+		char *arguments[4];
+		char *token = "";
 
-        printf("server:: wait for reply...\n");
-        rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
-        printf("server:: got reply [size:%d contents:(%s)\n", rc, message);
-    }
+		while(token != NULL) {
+			token = strsep(&message, "`");
+			if (token == NULL || *token == '\0') continue;
+			arguments[argNum] = token;
+			argNum++;
+    	}
+		
+		// if (strcmp(arguments[0], "MFS_Lookup")) {
+			
+		// }
+		
+
+		free(freeMessage);
+		return rc;
+
+	}
+
+
     return 0;
 
 
