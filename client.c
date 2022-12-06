@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "udp.h"
+#include "mfs.h"
 
 #define BUFFER_SIZE (1000)
 
@@ -11,7 +12,7 @@ int main(int argc, char *argv[]) {
     int rc = UDP_FillSockAddr(&addrSnd, "localhost", 10000);
 
     char message[BUFFER_SIZE];
-    sprintf(message, "MKFS_Lookup`0`..");
+    sprintf(message, "MKFS_Stat`0");
 
     printf("client:: send message [%s]\n", message);
     rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
@@ -21,6 +22,8 @@ int main(int argc, char *argv[]) {
     }
 
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
-    printf("message returned from server = %d\n", *((int *)message));
+    MFS_Stat_t *stat = (MFS_Stat_t *)message;
+    
+    printf("message returned from server = %d\n", stat->size);
     return 0;
 }

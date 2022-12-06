@@ -9,8 +9,11 @@
 #define BUFFER_SIZE (1000)
 
 // FUNCTION PROTOTYPES
-int lookup(int pinum, char *name, unsigned int i_bitMap[], inode_t inode_table[]);
+int Lookup(int pinum, char *name, unsigned int i_bitMap[], inode_t inode_table[]);
 int get_allocated(unsigned int pinum, unsigned int i_bitMap[]);
+int Shutdown_FS();
+int Stat(int inum, MFS_Stat_t *m, unsigned int i_bitMap[], inode_t inode_table[]);
+int writeInt(int ret_val, char *ogPointer, struct sockaddr_in *addrRcv, int sd, int *rc);
 
 ///////////////////////////////////////////// METADATA //////////////////////////////////
 // super block
@@ -45,7 +48,7 @@ int main(int argc, char *argv[]) {
 	
 	// read in super block
 	read(fd, &s, sizeof(super_t));
-	printf("address of first data block = %u\n", s.data_region_addr);
+
 	// read in inode bitmap
 	unsigned int i_bitMap[(s.inode_bitmap_len * UFS_BLOCK_SIZE) / sizeof(unsigned int)];
 	pread(fd, i_bitMap, s.inode_bitmap_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.inode_bitmap_addr);
@@ -55,7 +58,6 @@ int main(int argc, char *argv[]) {
 	pread(fd, d_bitMap, s.data_bitmap_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.data_bitmap_addr);
 
 	numInodes = (s.inode_region_len * UFS_BLOCK_SIZE) / sizeof(inode_t);
-
 	// read in inode region
 	inode_t inode_table[numInodes];
 	pread(fd, (void *)inode_table, s.inode_region_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.inode_region_addr);
@@ -78,7 +80,7 @@ int main(int argc, char *argv[]) {
 			perror("failed to read\n");
 			exit(1);
 		}
-		// processing command
+		// parsing the client's commands
 		int argNum = 0;
 		char *arguments[4];
 		char *token = "";
@@ -90,18 +92,37 @@ int main(int argc, char *argv[]) {
 			argNum++;
     	}
 
-		//printf("%s\n", arguments[0]);
-		int ret_val = 21;
-		if (strcmp("MKFS_Lookup", arguments[0]) == 0) {
-			ret_val = lookup(atoi(arguments[1]), arguments[2], i_bitMap, inode_table);	
-		}
-		message = ogPointer;
-		int *ret_message = (int *)ogPointer;
-		*ret_message = ret_val;
-		
-		rc = UDP_Write(sd, &addrRcv, message, BUFFER_SIZE);
+		int ret_val = -1;
+
+
+		// processing the client's commands
+		if (!strcmp("MKFS_Lookup", arguments[0])) {
+			ret_val = Lookup(atoi(arguments[1]), arguments[2], i_bitMap, inode_table);	
+			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
+
+		} else if (!strcmp("MKFS_Shutdown", arguments[0])) {
+			ret_val = Shutdown_FS();
+			
+		} else if (!strcmp("MKFS_Stat", arguments[0])) {
+			MFS_Stat_t m;
+			ret_val = Stat(atoi(arguments[1]), &m, i_bitMap, inode_table);
+			if (ret_val == -10) {
+				writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
+			} else {
+				int *structBuffer = (int *)ogPointer;
+				*structBuffer = m.type;
+				structBuffer = structBuffer + 1;
+				*structBuffer = m.size;
+				rc = UDP_Write(sd, &addrRcv, ogPointer, BUFFER_SIZE);
+			}
+
+		} 
+
+
 
 		break;
+		// sending the return value back to client
+		
 
 	}
 
@@ -112,16 +133,31 @@ int main(int argc, char *argv[]) {
 
 }
 
-int lookup(int pinum, char *name, unsigned int i_bitMap[], inode_t inode_table[]) {
-	
-	printf("name = %s\n", name);
 
+
+
+
+int Stat(int inum, MFS_Stat_t *m, unsigned int i_bitMap[], inode_t inode_table[]) {
+	if (inum >= numInodes) return -10;
+
+	if (!get_allocated(inum, i_bitMap)) return -10;
+
+	inode_t inode = inode_table[inum];
+	m->type = inode.type;
+	m->size = inode.size;
+	return 10;
+}
+
+int Shutdown_FS() {
+	fsync(fd);
+	exit(0);
+}
+
+int Lookup(int pinum, char *name, unsigned int i_bitMap[], inode_t inode_table[]) {
 
 	if (pinum >= numInodes) return -1;
 
 	// CHECK IF INODE IS ALLOCATED IN INODE BITMAP
-	// int index = pinum / sizeof(unsigned(int));
-	// unsigned int entry = i_bitMap[index];
 	if (!get_allocated(pinum, i_bitMap)) return -1;
 	
 	// CHECK IF INODE IS DIRECTORY
@@ -165,4 +201,11 @@ int get_allocated(unsigned int pinum, unsigned int i_bitMap[]) {
 	unsigned int masked = n & mask;
 	unsigned int inode_bit = masked >> k;
 	return inode_bit;
+}
+
+int writeInt(int ret_val, char *ogPointer, struct sockaddr_in *addrRcv, int sd, int *rc) {
+		int *ret_message = (int *)ogPointer;
+		*ret_message = ret_val;
+		*rc = UDP_Write(sd, addrRcv, ogPointer, BUFFER_SIZE);
+		return 0;
 }
