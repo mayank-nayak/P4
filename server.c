@@ -10,7 +10,7 @@
 
 // FUNCTION PROTOTYPES
 int lookup(int pinum, char *name, unsigned int i_bitMap[], inode_t inode_table[]);
-int get_allocated(unsigned int n);
+int get_allocated(unsigned int pinum, unsigned int i_bitMap[]);
 
 ///////////////////////////////////////////// METADATA //////////////////////////////////
 // super block
@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 	
 	// read in super block
 	read(fd, &s, sizeof(super_t));
-
+	printf("address of first data block = %u\n", s.data_region_addr);
 	// read in inode bitmap
 	unsigned int i_bitMap[(s.inode_bitmap_len * UFS_BLOCK_SIZE) / sizeof(unsigned int)];
 	pread(fd, i_bitMap, s.inode_bitmap_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.inode_bitmap_addr);
@@ -64,18 +64,20 @@ int main(int argc, char *argv[]) {
 
 	struct sockaddr_in addrRcv;
 
-    int sd = UDP_Open(port);
-    int rc;
+    int rc, sd = UDP_Open(port);
+    char *message;
+	char *ogPointer;
 
     while (1) {
 		// receiving command
 		//char message[BUFFER_SIZE];
-		char *message = malloc(sizeof(char) * BUFFER_SIZE);
-		char *freeMessage = message;
+		message = malloc(sizeof(char) * BUFFER_SIZE);
+		ogPointer = message;
 		rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
-
-		printf("message in server: %s\n", message);
-
+		if (rc < 0) {
+			perror("failed to read\n");
+			exit(1);
+		}
 		// processing command
 		int argNum = 0;
 		char *arguments[4];
@@ -87,18 +89,23 @@ int main(int argc, char *argv[]) {
 			arguments[argNum] = token;
 			argNum++;
     	}
-		int ret_val = -1;
-		if (!strcmp("MFS_Lookup", arguments[0])) {
-			ret_val = lookup(atoi(arguments[1]), arguments[2], i_bitMap, inode_table);
+
+		//printf("%s\n", arguments[0]);
+		int ret_val = 21;
+		if (strcmp("MKFS_Lookup", arguments[0]) == 0) {
+			ret_val = lookup(atoi(arguments[1]), arguments[2], i_bitMap, inode_table);	
 		}
+		message = ogPointer;
+		int *ret_message = (int *)ogPointer;
+		*ret_message = ret_val;
 		
+		rc = UDP_Write(sd, &addrRcv, message, BUFFER_SIZE);
 
-
-		free(freeMessage);
 		break;
 
 	}
 
+	free(ogPointer);
 	close(fd);
 
     return 0;
@@ -106,13 +113,16 @@ int main(int argc, char *argv[]) {
 }
 
 int lookup(int pinum, char *name, unsigned int i_bitMap[], inode_t inode_table[]) {
+	
+	printf("name = %s\n", name);
+
 
 	if (pinum >= numInodes) return -1;
 
 	// CHECK IF INODE IS ALLOCATED IN INODE BITMAP
-	int index = pinum / sizeof(unsigned(int));
-	unsigned int entry = i_bitMap[index];
-	if (!get_allocated(entry)) return -1;
+	// int index = pinum / sizeof(unsigned(int));
+	// unsigned int entry = i_bitMap[index];
+	if (!get_allocated(pinum, i_bitMap)) return -1;
 	
 	// CHECK IF INODE IS DIRECTORY
 	inode_t inode = inode_table[pinum];
@@ -121,13 +131,14 @@ int lookup(int pinum, char *name, unsigned int i_bitMap[], inode_t inode_table[]
 	// LOOK THROUGH DIRECTORY ENTRIES TO FIND NAME
 	for (int i = 0; i<DIRECT_PTRS; ++i) {
 		if (inode.direct[i] == -1) continue;
-		
 		dir_ent_t directory_table[UFS_BLOCK_SIZE / sizeof(dir_ent_t)];
-		pread(fd, directory_table, UFS_BLOCK_SIZE, inode.direct[i]);
+		pread(fd, directory_table, UFS_BLOCK_SIZE, inode.direct[i] * UFS_BLOCK_SIZE);
 		for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); ++j) {
 			dir_ent_t current_entry = directory_table[j];
 			if (current_entry.inum == -1) continue;
-			if (!strcmp(name, current_entry.name)) return current_entry.inum;
+			if (strcmp(name, current_entry.name) == 0) {
+				return current_entry.inum;
+			}
 		}
 	}
 
@@ -146,7 +157,9 @@ int lookup(int pinum, char *name, unsigned int i_bitMap[], inode_t inode_table[]
 
 // HELPER FUNCTIONS
 
-int get_allocated(unsigned int n) {
+int get_allocated(unsigned int pinum, unsigned int i_bitMap[]) {
+	int index = pinum / sizeof(unsigned(int));
+	unsigned int n = i_bitMap[index];
 	int k = 31 - (n % 32);
 	unsigned int mask = (unsigned int)1 << k;
 	unsigned int masked = n & mask;
