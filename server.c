@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
 
 }
 
-
+// returns 0 on successful creation, returns -1 on failure to create
 int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int d_bitMap[]) {
 
 	if (pinum >= numInodes) return -1;
@@ -162,40 +162,45 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 				unsigned int new_inum = allocate_Inode_Bit(i_bitMap);
 				if (new_inum == -1) return -1;
 				// initialize the new inode
-				inode_t inode;
-				inode.type = type == 0 ? MFS_DIRECTORY : MFS_REGULAR_FILE;
-				inode.size = type == 0 ? sizeof(dir_ent_t) * 2 : 0;
+				inode_t new_inode;
+				new_inode.type = type == 0 ? MFS_DIRECTORY : MFS_REGULAR_FILE;
+				new_inode.size = type == 0 ? sizeof(dir_ent_t) * 2 : 0;
 				for (int k = 0; k < DIRECT_PTRS; k++) {
-					inode.direct[k] = -1;
+					new_inode.direct[k] = -1;
 				}
 				// if it's a directory, put "." and ".." as directory entries in a data block and write data block in fs image
 				if (type == MFS_DIRECTORY) {
 					unsigned int new_data_block = allocate_D_Bit(d_bitMap);
-					inode.direct[0] = new_data_block;
+					new_inode.direct[0] = new_data_block;
 					dir_ent_t new_dir_table[UFS_BLOCK_SIZE / sizeof(dir_ent_t)];
 					strcpy(new_dir_table[0].name, ".");
 					new_dir_table[0].inum = new_inum;
-					strcpy(new_dir_table[0].name, "..");
-					new_dir_table[0].inum = pinum;
+					strcpy(new_dir_table[1].name, "..");
+					new_dir_table[1].inum = pinum;
 					pwrite(fd, new_dir_table, UFS_BLOCK_SIZE, new_data_block * UFS_BLOCK_SIZE);	
 				}
 				// write the new inode into fs image
-				pwrite(fd, &inode, sizeof(inode_t), s.inode_region_addr + (sizeof(inode_t) * new_inum));
+				pwrite(fd, &new_inode, sizeof(inode_t), s.inode_region_addr + (sizeof(inode_t) * new_inum));
 
-				// write the updated data_bitmap and inode_bitmap
+				// write the updated data_bitmap and inode_bitmap and the updated parent directory table
+				pwrite(fd, directory_table, UFS_BLOCK_SIZE, inode.direct[i] * UFS_BLOCK_SIZE);
 				pwrite(fd, d_bitMap, s.data_bitmap_len * UFS_BLOCK_SIZE, s.data_bitmap_addr * UFS_BLOCK_SIZE);
-				pwrite(fd, i_bitMap, s.inode_bitmap_len * UFS_BLOCK_SIZE, s.inode_bitmap_addr * UFS_BLOCK_SIZE);	
+				pwrite(fd, i_bitMap, s.inode_bitmap_len * UFS_BLOCK_SIZE, s.inode_bitmap_addr * UFS_BLOCK_SIZE);
+				fsync(fd);	
+				return 0;
 			}
 
 		}
 		
 	}
-	
 
-
-
-	return 0;
+	return -1;
 }
+
+// int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]) {
+
+// }
+
 
 
 int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[], unsigned int d_bitMap[]) {
