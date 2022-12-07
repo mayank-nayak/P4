@@ -15,6 +15,8 @@ int Shutdown_FS();
 int Stat(int inum, MFS_Stat_t *m, unsigned int i_bitMap[]);
 int writeInt(int ret_val, char *ogPointer, struct sockaddr_in *addrRcv, int sd, int *rc);
 int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[], unsigned int d_bitMap[]);
+int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int d_bitMap[]);
+int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]);
 inode_t load_Inode(int inum);
 int allocate_D_Bit(unsigned int d_bitMap[]);
 int allocate_Inode_Bit(unsigned int i_bitmap[]);
@@ -124,8 +126,21 @@ int main(int argc, char *argv[]) {
 				rc = UDP_Write(sd, &addrRcv, ogPointer, BUFFER_SIZE);
 			}
 		} else if (!strcmp("MKFS_Write", arguments[0])) {
+			
 			ret_val = Write(atoi(arguments[1]), arguments[2], atoi(arguments[3]), atoi(arguments[4]), i_bitMap, d_bitMap);
-			return 0;
+			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
+		} else if (!strcmp("MKFS_Read", arguments[0])) {
+			rc = Read(atoi(arguments[1]), ogPointer + 4, atoi(arguments[2]), atoi(arguments[3]), i_bitMap);
+			if (ret_val == -1) {
+				writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
+			} else {
+				int *temp = (int *)ogPointer;
+				*temp = ret_val;
+				rc = UDP_Write(sd, &addrRcv, ogPointer, BUFFER_SIZE);
+			}
+		} else if (!strcmp("MKFS_Creat", arguments[0])) {
+			ret_val = Creat(atoi(arguments[1]), atoi(arguments[2]), arguments[3], i_bitMap, d_bitMap);
+			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		}
 
 		break;
@@ -197,11 +212,28 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 	return -1;
 }
 
-// int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]) {
+int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]) {
+	if (inum >= numInodes) return -1;
+	if (!get_allocated(inum, i_bitMap)) return -1;
 
-// }
+	inode_t inode = load_Inode(inum);
 
+	// if the number of bytes to read is past the end of the file, return -1
+	if (offset + nbytes > inode.size) return -1;
 
+	int directIdx = offset / UFS_BLOCK_SIZE;
+	int offset_block = offset % UFS_BLOCK_SIZE;
+	int sizeToRead = (UFS_BLOCK_SIZE - offset_block) - nbytes >= 0 ? nbytes : nbytes - (UFS_BLOCK_SIZE - offset_block);
+	int leftOver = nbytes - sizeToRead;
+
+	pread(fd, buffer, sizeToRead, (inode.direct[directIdx] * UFS_BLOCK_SIZE) + offset_block);
+	if (leftOver > 0) {
+		pread(fd, buffer + sizeToRead, leftOver, (inode.direct[directIdx + 1] * UFS_BLOCK_SIZE));
+	}
+
+	return 0;
+
+}
 
 int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[], unsigned int d_bitMap[]) {
 	if (inum >= numInodes) return -1;
