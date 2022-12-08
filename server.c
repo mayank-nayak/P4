@@ -26,7 +26,7 @@ int allocate_Inode_Bit(unsigned int *i_bitmap);
 int allocate_D_Bit(unsigned int d_bitMap[]);
 void clear_bit(unsigned int *bitmap, int position);
 void set_bit(unsigned int *bitmap, int position);
-unsigned int get_bit(unsigned int *bitmap, int position)
+unsigned int get_bit(unsigned int *bitmap, int position);
 
 
 
@@ -166,7 +166,7 @@ int main(int argc, char *argv[]) {
 
 int Unlink(int pinum, char *name, unsigned int i_bitMap[], unsigned int d_bitMap[]) {
 	if (pinum >= numInodes) return -1;
-	if (!get_allocated(pinum, i_bitMap)) return -1;
+	if (!get_bit(i_bitMap, pinum)) return -1;
 
 	// get the parent inode
 	inode_t pInode = load_Inode(pinum);
@@ -219,7 +219,7 @@ int Unlink(int pinum, char *name, unsigned int i_bitMap[], unsigned int d_bitMap
 int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int d_bitMap[]) {
 
 	if (pinum >= s.num_inodes) return -1;
-	if (!get_allocated(pinum, i_bitMap)) return -1;
+	if (!get_bit(i_bitMap, pinum)) return -1;
 
 	inode_t inode = load_Inode(pinum);
 	int created = 0;
@@ -305,7 +305,7 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 
 int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]) {
 	if (inum >= s.num_inodes) return -1;
-	if (!get_allocated(inum, i_bitMap)) return -1;
+	if (!get_bit(i_bitMap, inum)) return -1;
 
 	inode_t inode = load_Inode(inum);
 
@@ -334,7 +334,7 @@ int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]
 
 int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[], unsigned int d_bitMap[]) {
 	if (inum >= s.num_inodes) return -1;
-	if (!get_allocated(inum, i_bitMap)) return -1;
+	if (!get_bit(i_bitMap, inum)) return -1;
 
 	inode_t inode = load_Inode(inum);
 	// if not a regular file or if offset is past the end of file return -1
@@ -389,7 +389,7 @@ int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[
 int Stat(int inum, MFS_Stat_t *m, unsigned int i_bitMap[]) {
 	if (inum >= s.num_inodes) return -1;
 
-	if (!get_allocated(inum, i_bitMap)) return -1;
+	if (!get_bit(i_bitMap, inum)) return -1;
 
 	inode_t inode = load_Inode(inum);
 	m->type = inode.type;
@@ -407,7 +407,7 @@ int Lookup(int pinum, char *name, unsigned int i_bitMap[]) {
 	if (pinum >= s.num_inodes) return -1;
 
 	// CHECK IF INODE IS ALLOCATED IN INODE BITMAP
-	if (!get_allocated(pinum, i_bitMap)) return -1;
+	if (!get_bit(i_bitMap, pinum)) return -1;
 	
 	// CHECK IF INODE IS DIRECTORY
 	inode_t inode = load_Inode(pinum);
@@ -432,28 +432,9 @@ int Lookup(int pinum, char *name, unsigned int i_bitMap[]) {
 
 // HELPER FUNCTIONS
 
-// returns address of new inode number and allocated a bit for the new inode
-// int allocate_Inode_Bit(unsigned int i_bitMap[]) {
-// 	unsigned int new_iNumber = -1;
-// 	for (int i = 0; i < (s.inode_bitmap_len * UFS_BLOCK_SIZE) / sizeof(unsigned int) && new_iNumber == -1; ++i) {
-// 		unsigned int n = i_bitMap[i];
-// 		for (int k = 31; k > -1; ++k) {
-// 			unsigned int mask = (unsigned int)1 << k;
-// 			unsigned int masked = n & mask;
-// 			unsigned int inode_bit = masked >> k;
-// 			if (inode_bit == 0) {
-// 				masked = n | mask;
-// 				i_bitMap[i] = masked;
-// 				new_iNumber = (32 * i) + (31 - k);
-// 				break;
-// 			}
-// 		}
-// 	}
-// 	return new_iNumber;
-// }
 
 
-int allocate_Inode_Bit(unsigned int *i_bitmap) {
+int allocate_Inode_Bit(unsigned int *i_bitMap) {
 	for (int i = 0; i < s.num_inodes; ++i) {
 		if (get_bit(i_bitMap, i) == 0) {
 			set_bit(i_bitMap, i);
@@ -463,29 +444,16 @@ int allocate_Inode_Bit(unsigned int *i_bitmap) {
 	return -1;
 }
 
-
-
-
-
-// returns address of new data block assigned and allocates a bit for the new data block
-int allocate_D_Bit(unsigned int d_bitMap[]) {
-	unsigned int new_data_add = -1;
-	for (int i = 0; i < (s.data_bitmap_len * UFS_BLOCK_SIZE) / sizeof(unsigned int) && new_data_add == -1; ++i) {
-		unsigned int n = d_bitMap[i];
-		for (int k = 31; k > -1; ++k) {
-			unsigned int mask = (unsigned int)1 << k;
-			unsigned int masked = n & mask;
-			unsigned int inode_bit = masked >> k;
-			if (inode_bit == 0) {
-				masked = n | mask;
-				d_bitMap[i] = masked;
-				new_data_add = (32 * i) + (31 - k) + s.data_region_addr;
-				break;
-			}
+int allocate_D_Bit(unsigned int *d_bitMap) {
+	for (int i = 0; i < s.num_data; ++i) {
+		if (get_bit(d_bitMap, i) == 0) {
+			set_bit(d_bitMap, i);
+			return s.data_region_addr + i;
 		}
 	}
-	return new_data_add;
+	return -1;
 }
+
 
 
 inode_t load_Inode(int inum) {
@@ -496,17 +464,6 @@ inode_t load_Inode(int inum) {
 	return i_table[index];
 }
 
-int get_allocated(unsigned int pinum, unsigned int i_bitMap[]) {
-	int index = pinum / sizeof(unsigned(int));
-	unsigned int n = i_bitMap[index];
-	int k = 31 - (pinum % 32);
-	// unsigned int mask = (unsigned int)1 << k;
-	// unsigned int masked = n & mask;
-	// unsigned int inode_bit = masked >> k;
-	//return inode_bit;
-
-	return (n >> k) && 1;
-}
 
 int writeInt(int ret_val, char *ogPointer, struct sockaddr_in *addrRcv, int sd, int *rc) {
 		int *ret_message = (int *)ogPointer;
@@ -526,7 +483,7 @@ unsigned int get_bit(unsigned int *bitmap, int position) {
 void set_bit(unsigned int *bitmap, int position) {
    int index = position / 32;
    int offset = 31 - (position % 32);
-   bitmap[index] |=  0x1 << offset;
+   bitmap[index] |= 0x1 << offset;
 }
 
 
@@ -535,3 +492,59 @@ void clear_bit(unsigned int *bitmap, int position) {
    int offset = 31 - (position % 32);
    bitmap[index] &= (~0x1) << offset;
 }
+
+// int get_allocated(unsigned int pinum, unsigned int i_bitMap[]) {
+// 	int index = pinum / sizeof(unsigned(int));
+// 	unsigned int n = i_bitMap[index];
+// 	int k = 31 - (pinum % 32);
+// 	// unsigned int mask = (unsigned int)1 << k;
+// 	// unsigned int masked = n & mask;
+// 	// unsigned int inode_bit = masked >> k;
+// 	//return inode_bit;
+
+// 	return (n >> k) && 1;
+// }
+
+
+// // returns address of new data block assigned and allocates a bit for the new data block
+// int allocate_D_Bit(unsigned int d_bitMap[]) {
+// 	unsigned int new_data_add = -1;
+// 	for (int i = 0; i < (s.data_bitmap_len * UFS_BLOCK_SIZE) / sizeof(unsigned int) && new_data_add == -1; ++i) {
+// 		unsigned int n = d_bitMap[i];
+// 		for (int k = 31; k > -1; ++k) {
+// 			unsigned int mask = (unsigned int)1 << k;
+// 			unsigned int masked = n & mask;
+// 			unsigned int inode_bit = masked >> k;
+// 			if (inode_bit == 0) {
+// 				masked = n | mask;
+// 				d_bitMap[i] = masked;
+// 				new_data_add = (32 * i) + (31 - k) + s.data_region_addr;
+// 				break;
+// 			}
+// 		}
+// 	}
+// 	return new_data_add;
+// }
+
+
+
+
+// returns address of new inode number and allocated a bit for the new inode
+// int allocate_Inode_Bit(unsigned int i_bitMap[]) {
+// 	unsigned int new_iNumber = -1;
+// 	for (int i = 0; i < (s.inode_bitmap_len * UFS_BLOCK_SIZE) / sizeof(unsigned int) && new_iNumber == -1; ++i) {
+// 		unsigned int n = i_bitMap[i];
+// 		for (int k = 31; k > -1; ++k) {
+// 			unsigned int mask = (unsigned int)1 << k;
+// 			unsigned int masked = n & mask;
+// 			unsigned int inode_bit = masked >> k;
+// 			if (inode_bit == 0) {
+// 				masked = n | mask;
+// 				i_bitMap[i] = masked;
+// 				new_iNumber = (32 * i) + (31 - k);
+// 				break;
+// 			}
+// 		}
+// 	}
+// 	return new_iNumber;
+// }
