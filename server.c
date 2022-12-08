@@ -17,6 +17,7 @@ int Stat(int inum, MFS_Stat_t *m, unsigned int i_bitMap[]);
 int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[], unsigned int d_bitMap[]);
 int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int d_bitMap[]);
 int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]);
+int Unlink(int pinum, char *name, unsigned int i_bitMap[], unsigned int d_bitMap[]);
 
 
 // HELPER FUNCTIONS
@@ -150,6 +151,9 @@ int main(int argc, char *argv[]) {
 		} else if (!strcmp("MKFS_Creat", arguments[0])) {
 			ret_val = Creat(atoi(arguments[1]), atoi(arguments[2]), arguments[3], i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
+		} else if (!strcmp("MKFS_Unlink", arguments[0])) {
+			ret_val = Unlink(atoi(arguments[1]), arguments[2], i_bitMap, d_bitMap);
+			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		}
 
 		break;
@@ -220,11 +224,11 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 
 	if (pinum >= s.num_inodes) return -1;
 	if (!get_bit(i_bitMap, pinum)) return -1;
-
+	printf("inum 1 is %d\n", get_bit(i_bitMap, 1));
 	inode_t inode = load_Inode(pinum);
 	int created = 0;
 
-
+	printf("the name is %s\n", name);
 	// check if the filename already exists first 
 	for (int i = 0; i < DIRECT_PTRS; ++i) {
 		if (inode.direct[i] == -1) continue;
@@ -232,7 +236,11 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 		pread(fd, directory_table, UFS_BLOCK_SIZE, inode.direct[i] * UFS_BLOCK_SIZE);
 		for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); ++j) {
 			if (directory_table[j].inum != -1) {
-				if (!strcmp(name, directory_table[j].name)) return 0;
+				printf("helloworld");
+				if (!strcmp(name, directory_table[j].name)) {
+					printf("found\n");
+					return 0;
+				}
 			}
 		}
 	}
@@ -279,6 +287,10 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 				}
 				// update size of parent inode
 				inode.size = inode.size + sizeof(dir_ent_t);
+
+				// add new direcotry entry into parent
+				directory_table[i].inum = new_inum;
+				strcpy(directory_table[i].name, name);
 
 				// write the new inode into fs image
 				pwrite(fd, &new_inode, sizeof(inode_t), s.inode_region_addr + (sizeof(inode_t) * new_inum));
@@ -457,11 +469,9 @@ int allocate_D_Bit(unsigned int *d_bitMap) {
 
 
 inode_t load_Inode(int inum) {
-	int entry = inum / UFS_BLOCK_SIZE;
-	inode_t i_table[UFS_BLOCK_SIZE / sizeof(inode_t)];
-	pread(fd, i_table, UFS_BLOCK_SIZE, (s.inode_region_addr + entry) * UFS_BLOCK_SIZE);
-	int index = inum % UFS_BLOCK_SIZE;
-	return i_table[index];
+	inode_t inode;
+	pread(fd, &inode, sizeof(inode_t), s.inode_region_addr + (sizeof(inode_t) * inum));
+	return inode;
 }
 
 
