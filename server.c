@@ -54,6 +54,7 @@ int main(int argc, char *argv[]) {
 	int port = atoi(argv[1]);
 	if (port == 0) exit(1);
 	
+	printf("hello bro");
 
 	// get file system image
 	fd = open(argv[2], O_RDWR);
@@ -63,6 +64,8 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 	
+
+
 	// read in super block
 	read(fd, &s, sizeof(super_t));
 
@@ -112,6 +115,8 @@ int main(int argc, char *argv[]) {
 		int ret_val = -1;
 
 
+
+
 		// processing the client's commands
 		if (!strcmp("MKFS_Lookup", arguments[0])) {
 			ret_val = Lookup(atoi(arguments[1]), arguments[2], i_bitMap);	
@@ -136,11 +141,25 @@ int main(int argc, char *argv[]) {
 				rc = UDP_Write(sd, &addrRcv, ogPointer, BUFFER_SIZE);
 			}
 		} else if (!strcmp("MKFS_Write", arguments[0])) {
+			printf("arg1 = %s\n", arguments[1]);
+			printf("arg2 = %s\n", arguments[2]);
+			printf("arg3 = %s\n", arguments[3]);
+			printf("arg4 = %s\n", arguments[4]);
 			
+
+
 			ret_val = Write(atoi(arguments[1]), arguments[2], atoi(arguments[3]), atoi(arguments[4]), i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		} else if (!strcmp("MKFS_Read", arguments[0])) {
-			rc = Read(atoi(arguments[1]), ogPointer + 4, atoi(arguments[2]), atoi(arguments[3]), i_bitMap);
+			printf("calling read\n");
+
+			printf("arg1 = %s\n", arguments[1]);
+			printf("arg2 = %s\n", arguments[2]);
+			printf("arg3 = %s\n", arguments[3]);
+			//printf("arg4 = %s\n", arguments[4]);
+
+			ret_val = Read(atoi(arguments[1]), ogPointer + 4, atoi(arguments[2]), atoi(arguments[3]), i_bitMap);
+			
 			if (ret_val == -1) {
 				writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 			} else {
@@ -152,6 +171,7 @@ int main(int argc, char *argv[]) {
 			ret_val = Creat(atoi(arguments[1]), atoi(arguments[2]), arguments[3], i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		} else if (!strcmp("MKFS_Unlink", arguments[0])) {
+			
 			ret_val = Unlink(atoi(arguments[1]), arguments[2], i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		}
@@ -224,11 +244,10 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 
 	if (pinum >= s.num_inodes) return -1;
 	if (!get_bit(i_bitMap, pinum)) return -1;
-	printf("inum 1 is %d\n", get_bit(i_bitMap, 1));
 	inode_t inode = load_Inode(pinum);
 	int created = 0;
-
-	printf("the name is %s\n", name);
+	printf("pinum = %d\n", pinum);
+	printf("the size is %d\n", inode.size);
 	// check if the filename already exists first 
 	for (int i = 0; i < DIRECT_PTRS; ++i) {
 		if (inode.direct[i] == -1) continue;
@@ -236,7 +255,7 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 		pread(fd, directory_table, UFS_BLOCK_SIZE, inode.direct[i] * UFS_BLOCK_SIZE);
 		for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); ++j) {
 			if (directory_table[j].inum != -1) {
-				printf("helloworld");
+				
 				if (!strcmp(name, directory_table[j].name)) {
 					printf("found\n");
 					return 0;
@@ -283,6 +302,9 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 					new_dir_table[0].inum = new_inum;
 					strcpy(new_dir_table[1].name, "..");
 					new_dir_table[1].inum = pinum;
+					for (int index = 2; index < UFS_BLOCK_SIZE / sizeof(dir_ent_t); ++index) {
+						new_dir_table[index].inum = -1;
+					}
 					pwrite(fd, new_dir_table, UFS_BLOCK_SIZE, new_data_block * UFS_BLOCK_SIZE);	
 				}
 				// update size of parent inode
@@ -293,9 +315,10 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 				strcpy(directory_table[i].name, name);
 
 				// write the new inode into fs image
-				pwrite(fd, &new_inode, sizeof(inode_t), s.inode_region_addr + (sizeof(inode_t) * new_inum));
+				pwrite(fd, &new_inode, sizeof(inode_t), (s.inode_region_addr * UFS_BLOCK_SIZE) + (sizeof(inode_t) * new_inum));
 
-				// write the updated data_bitmap and inode_bitmap and the updated parent directory table
+				// write the updated data_bitmap and inode_bitmap and the updated parent directory table and update parent inode
+				pwrite(fd, &inode, sizeof(inode_t), (s.inode_region_addr * UFS_BLOCK_SIZE) + (sizeof(inode_t) * pinum));
 				pwrite(fd, directory_table, UFS_BLOCK_SIZE, inode.direct[i] * UFS_BLOCK_SIZE);
 				pwrite(fd, d_bitMap, s.data_bitmap_len * UFS_BLOCK_SIZE, s.data_bitmap_addr * UFS_BLOCK_SIZE);
 				pwrite(fd, i_bitMap, s.inode_bitmap_len * UFS_BLOCK_SIZE, s.inode_bitmap_addr * UFS_BLOCK_SIZE);
@@ -316,6 +339,7 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 }
 
 int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]) {
+	
 	if (inum >= s.num_inodes) return -1;
 	if (!get_bit(i_bitMap, inum)) return -1;
 
@@ -326,6 +350,7 @@ int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]
 
 	// READ A REGULAR FILE
 	if (inode.type == MFS_REGULAR_FILE) {
+		printf("yo\n");
 		int directIdx = offset / UFS_BLOCK_SIZE;
 		int offset_block = offset % UFS_BLOCK_SIZE;
 		int sizeToRead = (UFS_BLOCK_SIZE - offset_block) - nbytes >= 0 ? nbytes : nbytes - (UFS_BLOCK_SIZE - offset_block);
@@ -390,8 +415,8 @@ int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[
 	inode.size = offset + nbytes > inode.size ? offset + nbytes : inode.size;
 
 	// writing inode and data bitmap
-	pwrite(fd, &inode, sizeof(inode_t), s.inode_region_addr + (sizeof(inode_t) * inum));
-	pwrite(fd, d_bitMap, s.data_bitmap_len * UFS_BLOCK_SIZE, s.data_bitmap_addr);
+	pwrite(fd, &inode, sizeof(inode_t), (s.inode_region_addr * UFS_BLOCK_SIZE) + (sizeof(inode_t) * inum));
+	pwrite(fd, d_bitMap, s.data_bitmap_len * UFS_BLOCK_SIZE, s.data_bitmap_addr * UFS_BLOCK_SIZE);
 
 	fsync(fd);
 
@@ -466,11 +491,10 @@ int allocate_D_Bit(unsigned int *d_bitMap) {
 	return -1;
 }
 
-
-
 inode_t load_Inode(int inum) {
 	inode_t inode;
-	pread(fd, &inode, sizeof(inode_t), s.inode_region_addr + (sizeof(inode_t) * inum));
+	pread(fd, &inode, sizeof(inode_t), (s.inode_region_addr * UFS_BLOCK_SIZE) + (sizeof(inode_t) * inum));
+	printf("laod_inode inode.size = %d\n", inode.size);
 	return inode;
 }
 
@@ -481,7 +505,6 @@ int writeInt(int ret_val, char *ogPointer, struct sockaddr_in *addrRcv, int sd, 
 		*rc = UDP_Write(sd, addrRcv, ogPointer, BUFFER_SIZE);
 		return 0;
 }
-
 
 
 unsigned int get_bit(unsigned int *bitmap, int position) {
