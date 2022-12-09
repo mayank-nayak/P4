@@ -53,8 +53,6 @@ int main(int argc, char *argv[]) {
 	// get port number
 	int port = atoi(argv[1]);
 	if (port == 0) exit(1);
-	
-	printf("hello bro");
 
 	// get file system image
 	fd = open(argv[2], O_RDWR);
@@ -91,6 +89,8 @@ int main(int argc, char *argv[]) {
 	char *ogPointer;
 
     while (1) {
+
+		printf("starting now\n");
 		// receiving command
 		//char message[BUFFER_SIZE];
 		message = malloc(sizeof(char) * BUFFER_SIZE);
@@ -153,11 +153,6 @@ int main(int argc, char *argv[]) {
 		} else if (!strcmp("MKFS_Read", arguments[0])) {
 			printf("calling read\n");
 
-			printf("arg1 = %s\n", arguments[1]);
-			printf("arg2 = %s\n", arguments[2]);
-			printf("arg3 = %s\n", arguments[3]);
-			//printf("arg4 = %s\n", arguments[4]);
-
 			ret_val = Read(atoi(arguments[1]), ogPointer + 4, atoi(arguments[2]), atoi(arguments[3]), i_bitMap);
 			
 			if (ret_val == -1) {
@@ -174,10 +169,9 @@ int main(int argc, char *argv[]) {
 			
 			ret_val = Unlink(atoi(arguments[1]), arguments[2], i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
+		} else {
+			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		}
-
-		break;
-		
 	}
 
 	free(ogPointer);
@@ -458,7 +452,8 @@ int Lookup(int pinum, char *name, unsigned int i_bitMap[]) {
 		for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); ++j) {
 			dir_ent_t current_entry = directory_table[j];
 			if (current_entry.inum == -1) continue;
-			if (strcmp(name, current_entry.name) == 0) {
+			printf("current_entry.name = %s\n", current_entry.name);
+			if (!strcmp(name, current_entry.name)) {
 				return current_entry.inum;
 			}
 		}
