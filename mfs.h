@@ -17,6 +17,8 @@ typedef struct __MFS_DirEnt_t {
     int  inum;      // inode number of entry (-1 means entry not used)
 } MFS_DirEnt_t;
 
+// -1 fail 0 directory 1 file
+
 
 int MFS_Init(char *hostname, int port);
 int MFS_Lookup(int pinum, char *name);

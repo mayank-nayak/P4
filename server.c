@@ -80,8 +80,6 @@ int main(int argc, char *argv[]) {
 	// inode_t inode_table[numInodes];
 	// pread(fd, (void *)inode_table, s.inode_region_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.inode_region_addr);
 
-
-
 	struct sockaddr_in addrRcv;
 
     int rc, sd = UDP_Open(port);
@@ -90,7 +88,6 @@ int main(int argc, char *argv[]) {
 
     while (1) {
 
-		
 		// receiving command
 		//char message[BUFFER_SIZE];
 		message = malloc(sizeof(char) * BUFFER_SIZE);
@@ -226,8 +223,7 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 	if (!get_bit(i_bitMap, pinum)) return -1;
 	inode_t inode = load_Inode(pinum);
 	int created = 0;
-	printf("pinum = %d\n", pinum);
-	printf("the size is %d\n", inode.size);
+
 	// check if the filename already exists first 
 	for (int i = 0; i < DIRECT_PTRS; ++i) {
 		if (inode.direct[i] == -1) continue;
@@ -237,7 +233,6 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 			if (directory_table[j].inum != -1) {
 				
 				if (!strcmp(name, directory_table[j].name)) {
-					printf("found\n");
 					return 0;
 				}
 			}
@@ -328,8 +323,7 @@ int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]
 	if (offset + nbytes > inode.size) return -1;
 
 	// READ A REGULAR FILE
-	if (inode.type == MFS_REGULAR_FILE) {
-		printf("yo\n");
+	if (inode.type == MFS_REGULAR_FILE || inode.type == MFS_DIRECTORY) {
 		int directIdx = offset / UFS_BLOCK_SIZE;
 		int offset_block = offset % UFS_BLOCK_SIZE;
 		int sizeToRead = (UFS_BLOCK_SIZE - offset_block) - nbytes >= 0 ? nbytes : nbytes - (UFS_BLOCK_SIZE - offset_block);
@@ -341,10 +335,18 @@ int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]
 		}
 	} else {
 	// READ A DIRECTORY AND ITS ENTRIES
-		pread(fd, buffer, inode.size, (inode.direct[0] * UFS_BLOCK_SIZE));
+		// MFS_DirEnt_t mfs_struct;
+		// mfs_struct.name = inode.name;
+		// mfs.inum = 
+		// pread(fd, buffer, inode.size, (inode.direct[0] * UFS_BLOCK_SIZE));
+		return -1;
 	}
 
-	return 0;
+	if (inode.type == MFS_DIRECTORY) {
+		return 0;
+	} else {
+		return 1;
+	}
 
 }
 
