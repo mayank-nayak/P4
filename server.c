@@ -255,6 +255,7 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 			for (int index = 0; index < UFS_BLOCK_SIZE / sizeof(dir_ent_t); ++index) {
 				temp_table[index].inum = -1;
 			}
+			pwrite(fd, temp_table, UFS_BLOCK_SIZE, new_directory_block * UFS_BLOCK_SIZE);
 		}
 		dir_ent_t directory_table[UFS_BLOCK_SIZE / sizeof(dir_ent_t)];
 		pread(fd, directory_table, UFS_BLOCK_SIZE, inode.direct[i] * UFS_BLOCK_SIZE);
