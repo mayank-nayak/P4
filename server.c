@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
 
     while (1) {
 
-		printf("starting now\n");
+		
 		// receiving command
 		//char message[BUFFER_SIZE];
 		message = malloc(sizeof(char) * BUFFER_SIZE);
@@ -112,20 +112,16 @@ int main(int argc, char *argv[]) {
 			argNum++;
     	}
 
+
 		int ret_val = -1;
-
-
-
 
 		// processing the client's commands
 		if (!strcmp("MKFS_Lookup", arguments[0])) {
 			ret_val = Lookup(atoi(arguments[1]), arguments[2], i_bitMap);	
 			printf("ret_val = %d\n", ret_val);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
-
 		} else if (!strcmp("MKFS_Shutdown", arguments[0])) {
 			ret_val = Shutdown_FS();
-			
 		} else if (!strcmp("MKFS_Stat", arguments[0])) {
 			MFS_Stat_t m;
 			ret_val = Stat(atoi(arguments[1]), &m, i_bitMap);
@@ -141,20 +137,10 @@ int main(int argc, char *argv[]) {
 				rc = UDP_Write(sd, &addrRcv, ogPointer, BUFFER_SIZE);
 			}
 		} else if (!strcmp("MKFS_Write", arguments[0])) {
-			printf("arg1 = %s\n", arguments[1]);
-			printf("arg2 = %s\n", arguments[2]);
-			printf("arg3 = %s\n", arguments[3]);
-			printf("arg4 = %s\n", arguments[4]);
-			
-
-
 			ret_val = Write(atoi(arguments[1]), arguments[2], atoi(arguments[3]), atoi(arguments[4]), i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		} else if (!strcmp("MKFS_Read", arguments[0])) {
-			printf("calling read\n");
-
 			ret_val = Read(atoi(arguments[1]), ogPointer + 4, atoi(arguments[2]), atoi(arguments[3]), i_bitMap);
-			
 			if (ret_val == -1) {
 				writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 			} else {
@@ -205,7 +191,8 @@ int Unlink(int pinum, char *name, unsigned int i_bitMap[], unsigned int d_bitMap
 			if (!strcmp(directory_table[j].name, name)) {
 				inode_t inode = load_Inode(directory_table[j].inum);
 				// FAIL IF TRYING TO UNLINK DIRECTORY AND IT'S NOT EMPTY
-				if (inode.type == MFS_DIRECTORY && inode.size != 0) return -1; 
+				if (inode.type == MFS_DIRECTORY && (!strcmp(name, ".") || !strcmp(name, ".."))) return -1; 
+				if (inode.type == MFS_DIRECTORY && inode.size != 64) return -1;
 
 				for (int k = 0; k < DIRECT_PTRS; k++) {
 					// deallocate data blocks
@@ -227,7 +214,6 @@ int Unlink(int pinum, char *name, unsigned int i_bitMap[], unsigned int d_bitMap
 	}
 	pwrite(fd, d_bitMap, UFS_BLOCK_SIZE * s.data_bitmap_len, s.data_bitmap_addr);
 	pwrite(fd, i_bitMap, UFS_BLOCK_SIZE * s.inode_bitmap_len , s.inode_bitmap_addr);
-
 
 	return 0;
 }
@@ -317,19 +303,17 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 				pwrite(fd, d_bitMap, s.data_bitmap_len * UFS_BLOCK_SIZE, s.data_bitmap_addr * UFS_BLOCK_SIZE);
 				pwrite(fd, i_bitMap, s.inode_bitmap_len * UFS_BLOCK_SIZE, s.inode_bitmap_addr * UFS_BLOCK_SIZE);
 
+				fsync(fd);
 				created = 1;
-				
-				break;
+				return 0;
 			}
 
 		}
 		
 	}
-
 	
-	fsync(fd);
-
-	return 0;
+	// if file/directory not created, return -1
+	return -1;
 }
 
 int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]) {
@@ -368,31 +352,39 @@ int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[
 	if (!get_bit(i_bitMap, inum)) return -1;
 
 	inode_t inode = load_Inode(inum);
-	// if not a regular file or if offset is past the end of file return -1
-	if (inode.type == MFS_DIRECTORY || offset > inode.size) return -1;
+	// if not a regular file or if offset is past the end of file or if writing past the max possible size of file return -1
+	if (inode.type == MFS_DIRECTORY || offset > inode.size || offset + nbytes > DIRECT_PTRS * UFS_BLOCK_SIZE) return -1;
 
 	// check if the file has enough space
-	int allocated = 0;
-	for (int i = 0; i < DIRECT_PTRS; ++i) {
-		if (inode.direct[i] != -1) {
-			allocated += UFS_BLOCK_SIZE;
-		}
+	// int allocated = 0;
+	// for (int i = 0; i < DIRECT_PTRS; ++i) {
+	// 	if (inode.direct[i] != -1) {
+	// 		allocated += UFS_BLOCK_SIZE;
+	// 	}
+	// }
+	// int available_space = allocated - offset;
+
+	// if (available_space < nbytes) {
+	// 	// need to allocate more space for file
+	// 	unsigned int new_data_add = allocate_D_Bit(d_bitMap);
+	// 	// no more space left
+	// 	if (new_data_add == -1) return -1;
+
+	// 	for (int i = 0; i < DIRECT_PTRS; ++i) {
+	// 		if (inode.direct[i] == -1) {
+	// 			inode.direct[i] = new_data_add;
+	// 		}
+	// 	}
+	// }
+
+	// make enough space available
+	int current_space = 0;
+	int i = 0;
+	while(current_space < offset + nbytes) {
+		if (inode.direct[i++] == -1) inode.direct[i] = allocate_D_Bit(d_bitMap);
+		current_space += UFS_BLOCK_SIZE;
+		i++;
 	}
-	int available_space = allocated - offset;
-
-	if (available_space < nbytes) {
-		// need to allocate more space for file
-		unsigned int new_data_add = allocate_D_Bit(d_bitMap);
-		// no more space left
-		if (new_data_add == -1) return -1;
-
-		for (int i = 0; i < DIRECT_PTRS; ++i) {
-			if (inode.direct[i] == -1) {
-				inode.direct[i] = new_data_add;
-			}
-		}
-	}
-
 	// writing the actual data
 	int directIdx = offset / UFS_BLOCK_SIZE;
 	int offset_block = offset % 4096;
