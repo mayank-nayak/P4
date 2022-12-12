@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
 
 		// receiving command
 		//char message[BUFFER_SIZE];
-		message = malloc(sizeof(char) * BUFFER_SIZE);
+		message = calloc(BUFFER_SIZE, sizeof(char));
 		ogPointer = message;
 		rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
 		if (rc < 0) {
@@ -156,9 +156,9 @@ int main(int argc, char *argv[]) {
 		} else {
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		}
+		free(ogPointer);
 	}
 
-	free(ogPointer);
 	close(fd);
 
     return 0;
