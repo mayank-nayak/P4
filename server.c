@@ -196,7 +196,7 @@ int Unlink(int pinum, char *name, unsigned int i_bitMap[], unsigned int d_bitMap
 				for (int k = 0; k < DIRECT_PTRS; k++) {
 					// deallocate data blocks
 					if (inode.direct[k] != -1) {
-						clear_bit(d_bitMap, inode.direct[k]);
+						clear_bit(d_bitMap, inode.direct[k] - s.data_region_addr);
 					}
 				}
 
