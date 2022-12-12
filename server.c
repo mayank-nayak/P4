@@ -57,7 +57,8 @@ int main(int argc, char *argv[]) {
 	fd = open(argv[2], O_RDWR);
 	// if file system image doesn't exist, then exit
 	if (fd < 0) {
-		perror("image does not exist\n");
+		//perror("image does not exist\n");
+		assert(fd > -1);
 		exit(1);
 	}
 	
