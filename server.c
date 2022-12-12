@@ -113,13 +113,13 @@ int main(int argc, char *argv[]) {
 		int ret_val = -1;
 
 		// processing the client's commands
-		if (!strcmp("MKFS_Lookup", arguments[0])) {
+		if (!strcmp("MFS_Lookup", arguments[0])) {
 			ret_val = Lookup(atoi(arguments[1]), arguments[2], i_bitMap);	
 			printf("ret_val = %d\n", ret_val);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
-		} else if (!strcmp("MKFS_Shutdown", arguments[0])) {
+		} else if (!strcmp("MFS_Shutdown", arguments[0])) {
 			ret_val = Shutdown_FS();
-		} else if (!strcmp("MKFS_Stat", arguments[0])) {
+		} else if (!strcmp("MFS_Stat", arguments[0])) {
 			MFS_Stat_t m;
 			ret_val = Stat(atoi(arguments[1]), &m, i_bitMap);
 			if (ret_val == -1) {
@@ -133,10 +133,10 @@ int main(int argc, char *argv[]) {
 				*structBuffer = m.size;
 				rc = UDP_Write(sd, &addrRcv, ogPointer, BUFFER_SIZE);
 			}
-		} else if (!strcmp("MKFS_Write", arguments[0])) {
+		} else if (!strcmp("MFS_Write", arguments[0])) {
 			ret_val = Write(atoi(arguments[1]), arguments[2], atoi(arguments[3]), atoi(arguments[4]), i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
-		} else if (!strcmp("MKFS_Read", arguments[0])) {
+		} else if (!strcmp("MFS_Read", arguments[0])) {
 			ret_val = Read(atoi(arguments[1]), ogPointer + 4, atoi(arguments[2]), atoi(arguments[3]), i_bitMap);
 			if (ret_val == -1) {
 				writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
@@ -145,10 +145,10 @@ int main(int argc, char *argv[]) {
 				*temp = ret_val;
 				rc = UDP_Write(sd, &addrRcv, ogPointer, BUFFER_SIZE);
 			}
-		} else if (!strcmp("MKFS_Creat", arguments[0])) {
+		} else if (!strcmp("MFS_Creat", arguments[0])) {
 			ret_val = Creat(atoi(arguments[1]), atoi(arguments[2]), arguments[3], i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
-		} else if (!strcmp("MKFS_Unlink", arguments[0])) {
+		} else if (!strcmp("MFS_Unlink", arguments[0])) {
 			
 			ret_val = Unlink(atoi(arguments[1]), arguments[2], i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
