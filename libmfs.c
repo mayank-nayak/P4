@@ -1,6 +1,7 @@
 #include "mfs.h"
 #include "ufs.h"
 #include "udp.h"
+#include "sys/select.h"
 
 #define BUFFER_SIZE (2 * UFS_BLOCK_SIZE)
 
@@ -18,11 +19,24 @@ int MFS_Shutdown();
 struct sockaddr_in addrSnd, addrRcv;
 int sd;
 char sep = '`';
+int fd;
+fd_set set;
+struct timeval timeout;
 
 int MFS_Init(char *hostname, int port) {
     sd = UDP_Open(20000);
     int rc = UDP_FillSockAddr(&addrSnd, hostname, port);
     if (rc < 0) return -1;
+    fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (fd < 0) return -1;
+    rc = bind(fd, (const struct sockaddr*)&addrRcv, sizeof(struct sockaddr_in));
+    if (rc < 0) return -1;
+    rc = connect(fd, (const struct sockaddr*)&addrRcv, sizeof(struct sockaddr_in));
+    if (rc < 0) return -1;
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
+    FD_ZERO(&set);
+    FD_SET(fd, &set);
     return 0;
 }
 
@@ -37,8 +51,13 @@ int MFS_Lookup(int pinum, char *name) {
         exit(1);
     }
 
+    while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1) {
+        printf("waitin");
+    }
+
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
+        printf("client:: failed to recieve\n");
         return -1;
     }
 
@@ -56,6 +75,7 @@ int MFS_Stat(int inum, MFS_Stat_t *m) {
         exit(1);
     }
 
+    while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         return -1;
@@ -77,6 +97,7 @@ int MFS_Write(int inum, char *buffer, int offset, int nbytes) {
         exit(1);
     }
 
+    while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         return -1;
@@ -97,6 +118,7 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes) {
         exit(1);
     }
 
+    while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         return -1;
@@ -120,18 +142,20 @@ int MFS_Creat(int pinum, int type, char *name) {
     char message[BUFFER_SIZE];
     char* func = "MFS_Creat";
     snprintf(message, sizeof(message), "%s%c%i%c%i%c%s", func, sep, pinum, sep, type, sep, name);
-
+    printf("%s\n", message);
     int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
     if (rc < 0) {
         printf("client:: failed to send\n");
         exit(1);
     }
 
+    while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
+        printf("client:: failed to recieve\n");
         return -1;
     }
-    
+    // printf("reached return\n");
     return *(int*)message;
 }
 
@@ -146,6 +170,7 @@ int MFS_Unlink(int pinum, char *name) {
         exit(1);
     }
 
+    while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         return -1;
@@ -167,3 +192,4 @@ char message[BUFFER_SIZE];
 
     return 0;  
 }
+	
