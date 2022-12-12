@@ -65,7 +65,8 @@ int main(int argc, char *argv[]) {
 
 
 	// read in super block
-	read(fd, &s, sizeof(super_t));
+	//read(fd, &s, sizeof(super_t));
+	pread(fd, &s, sizeof(super_t), 0);
 
 	// read in inode bitmap
 	unsigned int i_bitMap[(s.inode_bitmap_len * UFS_BLOCK_SIZE) / sizeof(unsigned int)];
@@ -75,7 +76,7 @@ int main(int argc, char *argv[]) {
 	unsigned int d_bitMap[(s.data_bitmap_len * UFS_BLOCK_SIZE) / sizeof(unsigned int)];
 	pread(fd, d_bitMap, s.data_bitmap_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.data_bitmap_addr);
 
-	numInodes = (s.inode_region_len * UFS_BLOCK_SIZE) / sizeof(inode_t);
+	//numInodes = (s.inode_region_len * UFS_BLOCK_SIZE) / sizeof(inode_t);
 	// read in inode region
 	// inode_t inode_table[numInodes];
 	// pread(fd, (void *)inode_table, s.inode_region_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.inode_region_addr);
@@ -520,5 +521,5 @@ void set_bit(unsigned int *bitmap, int position) {
 void clear_bit(unsigned int *bitmap, int position) {
    int index = position / 32;
    int offset = 31 - (position % 32);
-   bitmap[index] &= (~0x1) << offset;
+   bitmap[index] &= ~(0x1 << offset);
 }
