@@ -41,16 +41,25 @@ int MFS_Init(char *hostname, int port) {
 }
 
 int MFS_Lookup(int pinum, char *name) {
+
+    if (strlen(name) > 27) return -1;
+
     char message[BUFFER_SIZE];
     char* func = "MFS_Lookup";
     snprintf(message, sizeof(message), "%s%c%i%c%s", func, sep, pinum, sep, name);
-
-    int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
-    if (rc < 0) {
-        printf("client:: failed to send\n");
-        exit(1);
+    int rc;
+    while (1) {
+        rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
+        if (rc < 0) {
+            printf("client:: failed to send\n");
+            exit(1);
+        }
+        rc = select(FD_SETSIZE, &set, NULL, NULL, &timeout);
+        if (rc < 0) exit(1);
+        if (rc == 0) {
+            continue;
+        } else break;
     }
-
   //  while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1) ;
        
 
@@ -67,14 +76,20 @@ int MFS_Stat(int inum, MFS_Stat_t *m) {
     char message[BUFFER_SIZE];
     char* func = "MFS_Stat";
     snprintf(message, sizeof(message), "%s%c%i%c%i%i", func, sep, inum, sep, m->type, m->size);
-
-    int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
-    if (rc < 0) {
-        printf("client:: failed to send\n");
-        exit(1);
+    int rc;
+    while (1) {
+        rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
+        if (rc < 0) {
+            printf("client:: failed to send\n");
+            exit(1);
+        }
+        rc = select(FD_SETSIZE, &set, NULL, NULL, &timeout);
+        if (rc < 0) exit(1);
+        if (rc == 0) {
+            continue;
+        } else break;
     }
 
-    while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         return -1;
@@ -91,14 +106,20 @@ int MFS_Write(int inum, char *buffer, int offset, int nbytes) {
     snprintf(message, sizeof(message), "%s%c%i%c%i%c%i%c", func, sep, inum, sep, nbytes, sep, offset, sep);
     memcpy(message + strlen(message) , buffer, nbytes);
 
-    // MFS_Write`inum`nbytes`offset`buffer..........
-    int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
-    if (rc < 0) {
-        printf("client:: failed to send\n");
-        exit(1);
+    int rc;
+    while (1) {
+        rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
+        if (rc < 0) {
+            printf("client:: failed to send\n");
+            exit(1);
+        }
+        rc = select(FD_SETSIZE, &set, NULL, NULL, &timeout);
+        if (rc < 0) exit(1);
+        if (rc == 0) {
+            continue;
+        } else break;
     }
 
-   // while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         return -1;
@@ -114,14 +135,21 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes) {
     char* func = "MFS_Read";
     
     snprintf(message, sizeof(message), "%s%c%i%c%i%c%i", func, sep, inum, sep, offset, sep, nbytes);
-    printf("read message = %s\n", message);
-    int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
-    if (rc < 0) {
-        printf("client:: failed to send\n");
-        exit(1);
+
+    int rc;
+    while (1) {
+        rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
+        if (rc < 0) {
+            printf("client:: failed to send\n");
+            exit(1);
+        }
+        rc = select(FD_SETSIZE, &set, NULL, NULL, &timeout);
+        if (rc < 0) exit(1);
+        if (rc == 0) {
+            continue;
+        } else break;
     }
 
-   // while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         return -1;
@@ -142,17 +170,27 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes) {
 }
 
 int MFS_Creat(int pinum, int type, char *name) {
+
+    if (strlen(name) > 27) return -1;
+
     char message[BUFFER_SIZE];
     char* func = "MFS_Creat";
     snprintf(message, sizeof(message), "%s%c%i%c%i%c%s", func, sep, pinum, sep, type, sep, name);
-    printf("%s\n", message);
-    int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
-    if (rc < 0) {
-        printf("client:: failed to send\n");
-        exit(1);
+
+    int rc;
+    while (1) {
+        rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
+        if (rc < 0) {
+            printf("client:: failed to send\n");
+            exit(1);
+        }
+        rc = select(FD_SETSIZE, &set, NULL, NULL, &timeout);
+        if (rc < 0) exit(1);
+        if (rc == 0) {
+            continue;
+        } else break;
     }
 
-    //while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         printf("client:: failed to recieve\n");
@@ -163,17 +201,27 @@ int MFS_Creat(int pinum, int type, char *name) {
 }
 
 int MFS_Unlink(int pinum, char *name) {
+
+    if (strlen(name) > 27) return -1;
+
     char message[BUFFER_SIZE];
     char* func = "MFS_Unlink";
     snprintf(message, sizeof(message), "%s%c%i%c%s", func, sep, pinum, sep, name);
 
-        int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
-    if (rc < 0) {
-        printf("client:: failed to send\n");
-        exit(1);
+    int rc;
+    while (1) {
+        rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
+        if (rc < 0) {
+            printf("client:: failed to send\n");
+            exit(1);
+        }
+        rc = select(FD_SETSIZE, &set, NULL, NULL, &timeout);
+        if (rc < 0) exit(1);
+        if (rc == 0) {
+            continue;
+        } else break;
     }
 
-   // while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         return -1;
@@ -195,4 +243,7 @@ char message[BUFFER_SIZE];
     printf("called shutdown\n");
     return 0;  
 }
+	
+	
+
 	
