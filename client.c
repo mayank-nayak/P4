@@ -46,8 +46,11 @@ int fd;
 
 
 int main(int argc, char *argv[]) {
+	printf("__________________________________________________________________________________________\n");
+	printf("SERVER IS STARTING | SERVER IS STARTING | SERVER IS STARTING | SERVER IS STARTING |\n");
+	printf("__________________________________________________________________________________________\n");
 
-	printf("starting the server!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+
 	
 	if (argc != 3) {
 		printf("usage: server [portnum] [file-system-image]\n");
@@ -61,13 +64,8 @@ int main(int argc, char *argv[]) {
 	// get file system image
 	fd = open(argv[2], O_RDWR);
 	// if file system image doesn't exist, then exit
-	if (fd < 0) {
-		//perror("image does not exist\n");
-		assert(fd > -1);
-		exit(1);
-	}
+	assert(fd > -1);
 	
-
 
 	// read in super block
 	pread(fd, &s, sizeof(super_t), 0);
@@ -87,25 +85,29 @@ int main(int argc, char *argv[]) {
 
 	struct sockaddr_in addrRcv;
 
-    int rc, sd = UDP_Open(port);
+    int rc, sd;
+	sd = UDP_Open(port);
+
+	while (sd < 0) {
+		 UDP_Open(port);
+	}
     char *message;
 	char *ogPointer;
 
+	message = malloc(sizeof(char) * BUFFER_SIZE);
+	ogPointer = message;
+
     while (1) {
-		printf("hello world\n");
+		message = ogPointer;
 		// receiving command
 		//char message[BUFFER_SIZE];
-		message = malloc(sizeof(char) * BUFFER_SIZE);
-		ogPointer = message;
 		rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
-		printf("right after rading the client request\n");
 		if (rc < 0) {
-			perror("failed to read\n");
 			exit(1);
 		}
 		// parsing the client's commands
 		int argNum = 0;
-		char *arguments[5];
+		char *arguments[6];
 		char *token = "";
 
 		while(token != NULL) {
@@ -121,10 +123,9 @@ int main(int argc, char *argv[]) {
 		// processing the client's commands
 		if (!strcmp("MFS_Lookup", arguments[0])) {
 			ret_val = Lookup(atoi(arguments[1]), arguments[2], i_bitMap);	
-			printf("ret_val = %d\n", ret_val);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		} else if (!strcmp("MFS_Shutdown", arguments[0])) {
-			ret_val = Shutdown_FS();
+			rc = Shutdown_FS();
 		} else if (!strcmp("MFS_Stat", arguments[0])) {
 			MFS_Stat_t m;
 			ret_val = Stat(atoi(arguments[1]), &m, i_bitMap);
@@ -152,7 +153,6 @@ int main(int argc, char *argv[]) {
 				rc = UDP_Write(sd, &addrRcv, ogPointer, BUFFER_SIZE);
 			}
 		} else if (!strcmp("MFS_Creat", arguments[0])) {
-			printf("about ot run craete\n");
 			ret_val = Creat(atoi(arguments[1]), atoi(arguments[2]), arguments[3], i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		} else if (!strcmp("MFS_Unlink", arguments[0])) {
@@ -162,6 +162,7 @@ int main(int argc, char *argv[]) {
 		} else {
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		}
+		assert(rc > -1);
 	}
 
 	free(ogPointer);
@@ -397,7 +398,9 @@ int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[
 	int current_space = 0;
 	int i = 0;
 	while(current_space < offset + nbytes) {
-		if (inode.direct[i] == -1) inode.direct[i] = allocate_D_Bit(d_bitMap);
+		if (inode.direct[i] == -1) {
+			inode.direct[i] = allocate_D_Bit(d_bitMap);
+		}
 		current_space += UFS_BLOCK_SIZE;
 		i++;
 	}
@@ -496,7 +499,6 @@ int allocate_D_Bit(unsigned int *d_bitMap) {
 inode_t load_Inode(int inum) {
 	inode_t inode;
 	pread(fd, &inode, sizeof(inode_t), (s.inode_region_addr * UFS_BLOCK_SIZE) + (sizeof(inode_t) * inum));
-	printf("laod_inode inode.size = %d\n", inode.size);
 	return inode;
 }
 
