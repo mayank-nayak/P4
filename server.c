@@ -46,11 +46,12 @@ int fd;
 
 int main(int argc, char *argv[]) {
 	printf("__________________________________________________________________________________________\n");
-	printf("SERVER IS STARTING | SERVER IS STARTING | SERVER IS STARTING | SERVER IS STARTING |\n");
+	fprintf(stderr,"SERVER IS STARTING | SERVER IS STARTING | SERVER IS STARTING | SERVER IS STARTING |\n");
 	printf("__________________________________________________________________________________________\n");
 
-
-	
+	int pd = open("deez", O_CREAT | O_RDWR);
+	pwrite(pd, "SERVER", 7, 0);
+	close(pd);
 	if (argc != 3) {
 		printf("usage: server [portnum] [file-system-image]\n");
 		exit(1);
@@ -76,11 +77,6 @@ int main(int argc, char *argv[]) {
 	// read in data bitmap
 	unsigned int d_bitMap[(s.data_bitmap_len * UFS_BLOCK_SIZE) / sizeof(unsigned int)];
 	pread(fd, d_bitMap, s.data_bitmap_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.data_bitmap_addr);
-
-	numInodes = (s.inode_region_len * UFS_BLOCK_SIZE) / sizeof(inode_t);
-	// read in inode region
-	// inode_t inode_table[numInodes];
-	// pread(fd, (void *)inode_table, s.inode_region_len * UFS_BLOCK_SIZE, UFS_BLOCK_SIZE * s.inode_region_addr);
 
 	struct sockaddr_in addrRcv;
 
@@ -109,12 +105,14 @@ int main(int argc, char *argv[]) {
 		char *arguments[6];
 		char *token = "";
 
-		while(token != NULL) {
+		while(token != NULL && argNum < 6) {
 			token = strsep(&message, "`");
 			if (token == NULL || *token == '\0') continue;
 			arguments[argNum] = token;
 			argNum++;
     	}
+
+// write`34`23`54`45`ih4w8rhaeha8eht84w9haew8pthwp8h
 
 
 		int ret_val = -1;
@@ -141,9 +139,12 @@ int main(int argc, char *argv[]) {
 				rc = UDP_Write(sd, &addrRcv, ogPointer, BUFFER_SIZE);
 			}
 		} else if (!strcmp("MFS_Write", arguments[0])) {
-			ret_val = Write(atoi(arguments[1]), arguments[2], atoi(arguments[3]), atoi(arguments[4]), i_bitMap, d_bitMap);
+			char temp_buffer[atoi(arguments[2])];
+			memcpy(temp_buffer, arguments[4], atoi(arguments[2]));
+			ret_val = Write(atoi(arguments[1]), temp_buffer, atoi(arguments[3]), atoi(arguments[2]), i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		} else if (!strcmp("MFS_Read", arguments[0])) {
+			
 			ret_val = Read(atoi(arguments[1]), ogPointer + 4, atoi(arguments[2]), atoi(arguments[3]), i_bitMap);
 			if (ret_val == -1) {
 				writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
@@ -153,6 +154,7 @@ int main(int argc, char *argv[]) {
 				rc = UDP_Write(sd, &addrRcv, ogPointer, BUFFER_SIZE);
 			}
 		} else if (!strcmp("MFS_Creat", arguments[0])) {
+			fprintf(stderr, "created called");
 			ret_val = Creat(atoi(arguments[1]), atoi(arguments[2]), arguments[3], i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		} else if (!strcmp("MFS_Unlink", arguments[0])) {
@@ -365,14 +367,15 @@ int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]
 
 	// if the number of bytes to read is past the end of the file, return -1
 	if (offset + nbytes > inode.size) return -1;
-
+	int directIdx;
 	// READ A REGULAR FILE
 	if (inode.type == MFS_REGULAR_FILE || inode.type == MFS_DIRECTORY) {
-		int directIdx = offset / UFS_BLOCK_SIZE;
+		directIdx = offset / UFS_BLOCK_SIZE;
 		int offset_block = offset % UFS_BLOCK_SIZE;
+		fprintf(stderr, "nbytes = %d\n", nbytes);
 		int sizeToRead = (UFS_BLOCK_SIZE - offset_block) - nbytes >= 0 ? nbytes : nbytes - (UFS_BLOCK_SIZE - offset_block);
 		int leftOver = nbytes - sizeToRead;
-
+		fprintf(stderr, "size ot read = %d\n", sizeToRead);
 		pread(fd, buffer, sizeToRead, (inode.direct[directIdx] * UFS_BLOCK_SIZE) + offset_block);
 		if (leftOver > 0) {
 			pread(fd, buffer + sizeToRead, leftOver, (inode.direct[directIdx + 1] * UFS_BLOCK_SIZE));
@@ -380,6 +383,10 @@ int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]
 	} else {
 		return -1;
 	}
+
+	char temp_buffer[UFS_BLOCK_SIZE];
+	pread(fd, temp_buffer, UFS_BLOCK_SIZE, inode.direct[directIdx] * UFS_BLOCK_SIZE);
+	fprintf(stderr, "temp buffer in read = %s\n", temp_buffer + 4090);
 
 	if (inode.type == MFS_DIRECTORY) {
 		return 0;
@@ -390,7 +397,7 @@ int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]
 }
 
 int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[], unsigned int d_bitMap[]) {
-	printf("WRITE CALLED\n");
+	fprintf(stderr, "WRITE CALLED\n");
 	if (inum >= s.num_inodes) return -1;
 	if (!get_bit(i_bitMap, inum)) return -1;
 
@@ -426,6 +433,7 @@ int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[
 	// writing inode and data bitmap
 	pwrite(fd, &inode, sizeof(inode_t), (s.inode_region_addr * UFS_BLOCK_SIZE) + (sizeof(inode_t) * inum));
 	pwrite(fd, d_bitMap, s.data_bitmap_len * UFS_BLOCK_SIZE, s.data_bitmap_addr * UFS_BLOCK_SIZE);
+
 
 	int rc = fsync(fd);
 	assert(rc > -1);
