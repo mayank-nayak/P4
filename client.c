@@ -174,6 +174,7 @@ int main(int argc, char *argv[]) {
 
 
 int Unlink(int pinum, char *name, unsigned int i_bitMap[], unsigned int d_bitMap[]) {
+	printf("UNLINK CALLED\n");
 	if (pinum >= s.num_inodes) return -1;
 	if (!get_bit(i_bitMap, pinum)) return -1;
 
@@ -242,7 +243,7 @@ int Unlink(int pinum, char *name, unsigned int i_bitMap[], unsigned int d_bitMap
 
 // returns 0 on successful creation, returns -1 on failure to create
 int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int d_bitMap[]) {
-
+	printf("CREATE CALLED\n");
 	if (pinum >= s.num_inodes) return -1;
 	if (!get_bit(i_bitMap, pinum)) return -1;
 	inode_t inode = load_Inode(pinum);
@@ -354,7 +355,7 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 }
 
 int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]) {
-	
+	printf("READ CALLED\n");
 	if (inum >= s.num_inodes) return -1;
 	if (!get_bit(i_bitMap, inum)) return -1;
 
@@ -387,6 +388,7 @@ int Read(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[]
 }
 
 int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[], unsigned int d_bitMap[]) {
+	printf("WRITE CALLED\n");
 	if (inum >= s.num_inodes) return -1;
 	if (!get_bit(i_bitMap, inum)) return -1;
 
@@ -430,6 +432,7 @@ int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[
 }
 
 int Stat(int inum, MFS_Stat_t *m, unsigned int i_bitMap[]) {
+	printf("STAT CALLED\n");
 	if (inum >= s.num_inodes) return -1;
 
 	if (!get_bit(i_bitMap, inum)) return -1;
@@ -446,7 +449,7 @@ int Shutdown_FS() {
 }
 
 int Lookup(int pinum, char *name, unsigned int i_bitMap[]) {
-
+	printf("LOOKUP CALLED\n");
 	if (pinum >= s.num_inodes) return -1;
 
 	// CHECK IF INODE IS ALLOCATED IN INODE BITMAP
