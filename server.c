@@ -15,7 +15,6 @@
 // FUNCTION PROTOTYPES
 int Lookup(int pinum, char *name, unsigned int i_bitMap[]);
 int get_allocated(unsigned int pinum, unsigned int i_bitMap[]);
-int Shutdown_FS();
 int Stat(int inum, MFS_Stat_t *m, unsigned int i_bitMap[]);
 int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[], unsigned int d_bitMap[]);
 int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int d_bitMap[]);
@@ -125,7 +124,8 @@ int main(int argc, char *argv[]) {
 			ret_val = Lookup(atoi(arguments[1]), arguments[2], i_bitMap);	
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		} else if (!strcmp("MFS_Shutdown", arguments[0])) {
-			rc = Shutdown_FS();
+			break;
+			//rc = Shutdown_FS();
 		} else if (!strcmp("MFS_Stat", arguments[0])) {
 			MFS_Stat_t m;
 			ret_val = Stat(atoi(arguments[1]), &m, i_bitMap);
@@ -164,11 +164,13 @@ int main(int argc, char *argv[]) {
 		}
 		assert(rc > -1);
 	}
-
+	printf("__________________________________________________________________________________________\n");
+	printf("SERVER SHUTTING DOWN | SERVER SHUTTING DOWN | SERVER SHUTTING DOWN | SERVER SHUTTING DOWN\n");
+	printf("__________________________________________________________________________________________\n");
 	free(ogPointer);
+	fsync(fd);
 	close(fd);
-
-    return 0;
+    exit(0);
 
 }
 
@@ -441,11 +443,6 @@ int Stat(int inum, MFS_Stat_t *m, unsigned int i_bitMap[]) {
 	m->type = inode.type;
 	m->size = inode.size;
 	return 0;
-}
-
-int Shutdown_FS() {
-	fsync(fd);
-	exit(0);
 }
 
 int Lookup(int pinum, char *name, unsigned int i_bitMap[]) {
