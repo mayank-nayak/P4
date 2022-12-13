@@ -253,6 +253,7 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 	inode_t inode = load_Inode(pinum);
 	
 
+
 	// check if the filename already exists first 
 	for (int i = 0; i < DIRECT_PTRS; ++i) {
 		if (inode.direct[i] == -1) continue;
@@ -261,6 +262,7 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 		for (int j = 0; j < UFS_BLOCK_SIZE / sizeof(dir_ent_t); ++j) {
 			if (directory_table[j].inum != -1) {
 				if (!strcmp(name, directory_table[j].name)) {
+					fprintf(stderr, "duplicate file name\n");
 					return 0;
 				}
 			}
@@ -442,7 +444,7 @@ int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[
 }
 
 int Stat(int inum, MFS_Stat_t *m, unsigned int i_bitMap[]) {
-	printf("STAT CALLED\n");
+	fprintf(stderr, "STAT CALLED\n");
 	if (inum >= s.num_inodes) return -1;
 
 	if (!get_bit(i_bitMap, inum)) return -1;
@@ -460,8 +462,8 @@ int Lookup(int pinum, char *name, unsigned int i_bitMap[]) {
 	// CHECK IF INODE IS ALLOCATED IN INODE BITMAP
 	if (!get_bit(i_bitMap, pinum)) return -1;
 	
-	// CHECK IF INODE IS DIRECTORY
 	inode_t inode = load_Inode(pinum);
+	// CHECK IF INODE IS DIRECTORY
 	if (inode.type != MFS_DIRECTORY) return -1;
 	
 	// LOOK THROUGH DIRECTORY ENTRIES TO FIND NAME
