@@ -51,9 +51,8 @@ int MFS_Lookup(int pinum, char *name) {
         exit(1);
     }
 
-    while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1) {
-        printf("waitin");
-    }
+  //  while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1) ;
+       
 
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
@@ -89,19 +88,22 @@ int MFS_Write(int inum, char *buffer, int offset, int nbytes) {
     if (nbytes > 4096) return -1;
     char message[BUFFER_SIZE];
     char* func = "MFS_Write";
-    snprintf(message, sizeof(message), "%s%c%i%c%s%c%i%c%i", func, sep, inum, sep, buffer, sep, offset, sep, nbytes);
+    snprintf(message, sizeof(message), "%s%c%i%c%i%c%i%c", func, sep, inum, sep, nbytes, sep, offset, sep);
+    memcpy(message + strlen(message) , buffer, nbytes);
 
+    // MFS_Write`inum`nbytes`offset`buffer..........
     int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
     if (rc < 0) {
         printf("client:: failed to send\n");
         exit(1);
     }
 
-    while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
+   // while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         return -1;
     }
+    printf("MFS Write complete\n");
 
     return *(int*)message;
 }
@@ -110,15 +112,16 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes) {
     if (nbytes > 4096) return -1;
     char message[BUFFER_SIZE];
     char* func = "MFS_Read";
-    snprintf(message, sizeof(message), "%s%c%i%c%c%c%i", func, sep, inum, sep, offset, sep, nbytes);
-
+    
+    snprintf(message, sizeof(message), "%s%c%i%c%i%c%i", func, sep, inum, sep, offset, sep, nbytes);
+    printf("read message = %s\n", message);
     int rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
     if (rc < 0) {
         printf("client:: failed to send\n");
         exit(1);
     }
 
-    while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
+   // while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         return -1;
@@ -129,10 +132,10 @@ int MFS_Read(int inum, char *buffer, int offset, int nbytes) {
     // 1 is file 0 is directory
     // array of directory structures
     if (*(int*)message == 0) {
-        memcpy(buffer, (int*)message + 1, nbytes);
+        memcpy(buffer, message + 4, nbytes);
     }
     if (*(int*)message == 1) {
-        memcpy(buffer, (int*)message + 1, nbytes);
+        memcpy(buffer, message + 4, nbytes);
     }
 
     return 0;
@@ -149,13 +152,13 @@ int MFS_Creat(int pinum, int type, char *name) {
         exit(1);
     }
 
-    while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
+    //while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         printf("client:: failed to recieve\n");
         return -1;
     }
-    // printf("reached return\n");
+    printf("the message returned is %d\n", *(int*)message);
     return *(int*)message;
 }
 
@@ -170,7 +173,7 @@ int MFS_Unlink(int pinum, char *name) {
         exit(1);
     }
 
-    while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
+   // while ((select(FD_SETSIZE, &set, NULL, NULL, &timeout)) < 1);
     rc = UDP_Read(sd, &addrRcv, message, BUFFER_SIZE);
     if (rc < 0) {
         return -1;
@@ -189,7 +192,7 @@ char message[BUFFER_SIZE];
         printf("client:: failed to send\n");
         exit(1);
     } 
-
+    printf("called shutdown\n");
     return 0;  
 }
 	
