@@ -75,8 +75,9 @@ int MFS_Lookup(int pinum, char *name) {
 int MFS_Stat(int inum, MFS_Stat_t *m) {
     char message[BUFFER_SIZE];
     char* func = "MFS_Stat";
-    snprintf(message, sizeof(message), "%s%c%i%c%i%i", func, sep, inum, sep, m->type, m->size);
+    snprintf(message, sizeof(message), "%s%c%i", func, sep, inum);
     int rc;
+    printf("message to send = %s\n", message);
     while (1) {
         rc = UDP_Write(sd, &addrSnd, message, BUFFER_SIZE);
         if (rc < 0) {
@@ -95,7 +96,8 @@ int MFS_Stat(int inum, MFS_Stat_t *m) {
         return -1;
     }
 
-    m = (MFS_Stat_t*)((int*)message + 1); 
+    m->type = *(int*)(message+4);
+    m->size = *(int*)(message+8);
     return 0;    
 }
 
