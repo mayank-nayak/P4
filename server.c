@@ -41,17 +41,14 @@ int numInodes;
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
-int fd;
+int fd, rc, sd;
 
 
 int main(int argc, char *argv[]) {
-	printf("__________________________________________________________________________________________\n");
+	fprintf(stderr,"__________________________________________________________________________________________\n");
 	fprintf(stderr,"SERVER IS STARTING | SERVER IS STARTING | SERVER IS STARTING | SERVER IS STARTING |\n");
-	printf("__________________________________________________________________________________________\n");
+	fprintf(stderr,"__________________________________________________________________________________________\n");
 
-	int pd = open("deez", O_CREAT | O_RDWR);
-	pwrite(pd, "SERVER", 7, 0);
-	close(pd);
 	if (argc != 3) {
 		printf("usage: server [portnum] [file-system-image]\n");
 		exit(1);
@@ -59,7 +56,10 @@ int main(int argc, char *argv[]) {
 
 	// get port number
 	int port = atoi(argv[1]);
-	if (port == 0) exit(1);
+	
+	fprintf(stderr,"port = %d\n", port);
+
+
 
 	// get file system image
 	fd = open(argv[2], O_RDWR);
@@ -80,12 +80,17 @@ int main(int argc, char *argv[]) {
 
 	struct sockaddr_in addrRcv;
 
-    int rc, sd;
+    
 	sd = UDP_Open(port);
-
-	while (sd < 0) {
-		 UDP_Open(port);
+	if (sd < 0) {
+		fprintf(stderr, "sd did not work in server\n");
+		printf("sd did not work in server\n");
+		return -1;
 	}
+	assert(sd > -1);
+	// while (sd < 0) {
+	// 	 UDP_Open(port);
+	// }
     char *message;
 	char *ogPointer;
 
@@ -111,8 +116,6 @@ int main(int argc, char *argv[]) {
 			arguments[argNum] = token;
 			argNum++;
     	}
-
-// write`34`23`54`45`ih4w8rhaeha8eht84w9haew8pthwp8h
 
 
 		int ret_val = -1;
@@ -154,7 +157,6 @@ int main(int argc, char *argv[]) {
 				rc = UDP_Write(sd, &addrRcv, ogPointer, BUFFER_SIZE);
 			}
 		} else if (!strcmp("MFS_Creat", arguments[0])) {
-			fprintf(stderr, "created called");
 			ret_val = Creat(atoi(arguments[1]), atoi(arguments[2]), arguments[3], i_bitMap, d_bitMap);
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		} else if (!strcmp("MFS_Unlink", arguments[0])) {
@@ -164,7 +166,7 @@ int main(int argc, char *argv[]) {
 		} else {
 			writeInt(ret_val, ogPointer, &addrRcv, sd, &rc);
 		}
-		assert(rc > -1);
+		//assert(rc > -1);
 	}
 	printf("__________________________________________________________________________________________\n");
 	printf("SERVER SHUTTING DOWN | SERVER SHUTTING DOWN | SERVER SHUTTING DOWN | SERVER SHUTTING DOWN\n");
@@ -172,7 +174,10 @@ int main(int argc, char *argv[]) {
 	free(ogPointer);
 	fsync(fd);
 	close(fd);
+	rc = UDP_Close(sd);
+	assert(rc > -1);
     exit(0);
+	printf("should never reach here\n");
 
 }
 
@@ -251,6 +256,8 @@ int Creat(int pinum, int type, char *name, unsigned int i_bitMap[], unsigned int
 	if (pinum >= s.num_inodes) return -1;
 	if (!get_bit(i_bitMap, pinum)) return -1;
 	inode_t inode = load_Inode(pinum);
+	// if the pinum is not a directory, return fail
+	if (inode.type == MFS_REGULAR_FILE) return -1;
 	
 
 
@@ -402,8 +409,9 @@ int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[
 	fprintf(stderr, "WRITE CALLED\n");
 	if (inum >= s.num_inodes) return -1;
 	if (!get_bit(i_bitMap, inum)) return -1;
-
+	
 	inode_t inode = load_Inode(inum);
+	if (inode.size == UFS_BLOCK_SIZE * DIRECT_PTRS) return -1;
 	// if not a regular file or if offset is past the end of file or if writing past the max possible size of file return -1
 	if (inode.type == MFS_DIRECTORY || offset + nbytes > DIRECT_PTRS * UFS_BLOCK_SIZE) return -1;
 
@@ -444,7 +452,7 @@ int Write(int inum, char *buffer, int offset, int nbytes, unsigned int i_bitMap[
 }
 
 int Stat(int inum, MFS_Stat_t *m, unsigned int i_bitMap[]) {
-	fprintf(stderr, "STAT CALLED\n");
+	
 	if (inum >= s.num_inodes) return -1;
 
 	if (!get_bit(i_bitMap, inum)) return -1;
@@ -487,12 +495,14 @@ int Lookup(int pinum, char *name, unsigned int i_bitMap[]) {
 
 
 int allocate_Inode_Bit(unsigned int *i_bitMap) {
+
 	for (int i = 0; i < s.num_inodes; ++i) {
 		if (get_bit(i_bitMap, i) == 0) {
 			set_bit(i_bitMap, i);
 			return i;
 		}
 	}
+	
 	return -1;
 }
 
